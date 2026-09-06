@@ -101,6 +101,10 @@ async def historical_readings(
         "is no 'show everything regardless of archived state' mode, since every caller of this "
         "endpoint wants one or the other, never a mix.",
     ),
+    include_archived: bool = Query(
+        False,
+        description="Include both active and archived readings. Intended for complete exports; ignored when archived_only is true.",
+    ),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     query: dict = {}
@@ -112,7 +116,10 @@ async def historical_readings(
             query["timestamp"]["$gte"] = start
         if end:
             query["timestamp"]["$lte"] = end
-    query["archived"] = True if archived_only else _NOT_ARCHIVED
+    if archived_only:
+        query["archived"] = True
+    elif not include_archived:
+        query["archived"] = _NOT_ARCHIVED
 
     cursor = db.readings.find(query).sort("timestamp", -1).skip(skip).limit(limit)
     docs = await cursor.to_list(length=limit)
